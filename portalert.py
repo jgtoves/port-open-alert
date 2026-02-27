@@ -1,13 +1,27 @@
 import psutil
 import time
 from datetime import datetime
+import subprocess 
+import re
 
 def get_open_ports():
-    """Returns a set of currently open listening ports."""
+    """Returns a set of currently open listening ports using the 'ss' command."""
     ports = set()
-    for conn in psutil.net_connections(kind='inet'):
-        if conn.status == 'LISTEN':
-            ports.add((conn.laddr.port, conn.pid))
+    try:
+        # Run the 'ss' command: -l (listening), -p (process), -t (tcp), -n (numeric)
+        # We use 'su -c' only if rooted, but standard 'ss' usually works for local ports
+        result = subprocess.check_output(['ss', '-lptn'], stderr=subprocess.DEVNULL).decode()
+        
+        # Look for the port number in the output (e.g., 0.0.0.0:8080 or [::]:8080)
+        # Regex looks for the colon followed by the port digits
+        matches = re.findall(r':(\d+)\s+', result)
+        
+        for port in matches:
+            # We'll use 0 as a placeholder since 'ss' doesn't always show PID without root
+            ports.add((int(port), 0)) 
+            
+    except Exception as e:
+        print(f"Extraction Error: {e}")
     return ports
 
 def monitor():
